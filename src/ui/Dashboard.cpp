@@ -103,7 +103,7 @@ void DrawSideLinks(Theme& theme, UiState& ui, float contentAlpha, float dt, bool
     LinkBtn links[3] = {
         {"Site", 50.f, &ui.siteHover, L"https://vk.com/yowls"},
         {"Discord", 70.f, &ui.discordHover, L"https://discord.com/"},
-        {"Telegram", 80.f, &ui.telegramHover, L"https://t.me/"},
+        {"Telegram", 80.f, &ui.telegramHover, L"https://t.me/ShadowPulseLoader"},
     };
     float buttonY = 100.f;
     for (auto& btn : links) {
@@ -236,18 +236,41 @@ void DrawComingSoonOverlay(ImDrawList* dl, Theme& theme, const UiGpuResources& g
     dl->PopClipRect();
 }
 
+void DrawNews(ImDrawList* dl, Theme& theme, const std::string& news, float contentAlpha,
+              float startX, float winW, float y) {
+    if (news.empty()) return;
+    constexpr float kLineHeight = 16.f;
+    constexpr float kPad = 12.f;
+    ImGui::PushFont(theme.fontDefault ? theme.fontDefault : ImGui::GetFont());
+    ImGui::PushTextWrapPos(startX + winW - kPad);
+    float textH = 0.f;
+    const char* cstr = news.c_str();
+    // rough line count estimate
+    int lines = 1;
+    for (const char* p = cstr; *p; ++p) if (*p == '\n') ++lines;
+    textH = static_cast<float>(lines) * kLineHeight + kPad * 2.f;
+
+    ImVec2 textPos(startX + kPad, y + kPad);
+    ImGui::SetCursorPos(textPos);
+    {
+        const ScopedTextColor color(theme.textSoft, 0.85f * contentAlpha);
+        ImGui::TextUnformatted(cstr);
+    }
+    ImGui::PopTextWrapPos();
+    ImGui::PopFont();
+    (void)dl;
+    (void)textH;
+}
+
 void DrawAvatarFooter(ImDrawList* dl, Theme& theme, const UiGpuResources& gpu, float contentAlpha,
                       int winH) {
-    if (!gpu.avatar) return;
+    (void)dl;
+    (void)gpu;
     constexpr float kImageSize = 40.f;
     const ImVec2 ip(20.f, static_cast<float>(winH) - kImageSize - 25.f);
-    dl->AddImage(reinterpret_cast<ImTextureID>(gpu.avatar.Get()), ip,
-                 ImVec2(ip.x + kImageSize, ip.y + kImageSize), ImVec2(0, 0), ImVec2(1, 1),
-                 ColorA(ImVec4(1, 1, 1, 1), contentAlpha));
-    ImGui::SetCursorPos(
-        ImVec2(ip.x + kImageSize + 10.f, ip.y + (kImageSize - ImGui::GetTextLineHeight()) / 2.f));
+    ImGui::SetCursorPos(ImVec2(ip.x, ip.y + (kImageSize - ImGui::GetTextLineHeight()) / 2.f));
     const ScopedTextColor color(theme.text, 0.9f * contentAlpha);
-    ImGui::TextUnformatted("yowls");
+    ImGui::TextUnformatted("account");
 }
 
 void DrawWindowChrome(ImDrawList* dl, Theme& theme, UiState& ui, float contentAlpha, float dt,
@@ -339,10 +362,20 @@ void DrawDashboard(Theme& theme, UiState& ui, const UiGpuResources& gpu, data::C
     ImGui::PushFont(theme.fontDefault);
     DrawSideLinks(theme, ui, contentAlpha, dt, ui.modal.open, out);
 
-    constexpr float kContainersStartY = 100.f;
+    float newsBottomY = 100.f;
+    if (ui.newsLoaded && !ui.newsText.empty()) {
+        DrawNews(dl, theme, ui.newsText, contentAlpha, startX,
+                 static_cast<float>(winW) - startX - 20.f, 100.f);
+        // estimate news height: ~16px per line + padding
+        int lines = 1;
+        for (char c : ui.newsText) if (c == '\n') ++lines;
+        newsBottomY = 100.f + static_cast<float>(lines) * 16.f + 30.f;
+    }
+
     constexpr float kScrollSpeed = 60.f;
     constexpr float kContainerHeight = 80.f;
     constexpr float kContainerGap = 10.f;
+    const float kContainersStartY = newsBottomY;
     const float containerWidth = static_cast<float>(winW) - startX - 20.f;
     const float containersAreaHeight = static_cast<float>(winH) - kContainersStartY;
 
