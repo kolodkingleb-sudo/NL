@@ -82,6 +82,10 @@ void TickInject(UiState& ui, std::uint64_t now) {
     const std::uint64_t shrinkEnd = fadeOutEnd + kShrinkMs;
     const std::uint64_t injectEnd = shrinkEnd + kFadeInMs + kHoldMs;
 
+    // For CS2, don't auto-exit - wait for injection state
+    const bool isCs2 = (ui.inject.gameId == "cs2");
+    const bool cs2Done = isCs2 && (ui.cs2InjectState == 99);
+
     if (elapsed < fadeOutEnd) {
         ui.inject.showContent = false;
         ui.inject.modalW = kModalW;
@@ -99,33 +103,43 @@ void TickInject(UiState& ui, std::uint64_t now) {
             EaseOutExpand(static_cast<float>(elapsed - fadeOutEnd) / static_cast<float>(kShrinkMs));
         ui.inject.modalW = kModalW + (kInjectW - kModalW) * t;
         ui.inject.modalH = kModalH + (kInjectH - kModalH) * t;
-    } else if (elapsed < injectEnd) {
+    } else if (elapsed < injectEnd || (isCs2 && !cs2Done)) {
         ui.inject.showContent = true;
         ui.inject.modalW = kInjectW;
         ui.inject.modalH = kInjectH;
         const float local = static_cast<float>(elapsed - shrinkEnd);
         ui.inject.logoAlpha = EaseInOutCubic(std::min(1.f, local / static_cast<float>(kFadeInMs)));
         ui.inject.contentAlpha = 0.f;
-        ui.inject.progress = EaseOutExpand(std::min(1.f, local / static_cast<float>(kProgressMs)));
-    } else {
-        ui.requestExit = true;
-        ui.inject.active = false;
+        // For CS2, animate progress based on state
+        if (isCs2) {
+            if (ui.cs2InjectState == 1) ui.inject.progress = 0.25f;
+            else if (ui.cs2InjectState == 2) ui.inject.progress = 0.6f;
+            else if (cs2Done) ui.inject.progress = 1.f;
+        } else {
+            ui.inject.progress = EaseOutExpand(std::min(1.f, local / static_cast<float>(kProgressMs)));
+        }
     }
 
     // Update CS2 stage status text based on injection state
-    if (ui.inject.gameId == "cs2") {
+    if (isCs2) {
         if (ui.cs2InjectState == 1) {
             ui.inject.statusText = "Waiting for CS2 to launch...";
             ui.inject.stage = 1;
         } else if (ui.cs2InjectState == 2) {
             ui.inject.statusText = "Injecting DLL...";
             ui.inject.stage = 2;
-        } else if (ui.cs2InjectState == 99) {
+        } else if (cs2Done) {
             ui.inject.statusText = "Done!";
             ui.inject.stage = 3;
             ui.inject.progress = 1.f;
             ui.inject.logoAlpha = 1.f;
+            // Now exit
+            ui.requestExit = true;
+            ui.inject.active = false;
         }
+    } else if (elapsed >= injectEnd) {
+        ui.requestExit = true;
+        ui.inject.active = false;
     }
 }
 
