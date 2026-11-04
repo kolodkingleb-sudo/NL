@@ -91,8 +91,8 @@ bool InjectDllIntoProcess(DWORD pid, const std::wstring& dllPath) {
         CloseHandle(h);
         return false;
     }
-    HANDLE thread = CreateRemoteThread(h, nullptr, 0, (LPTHREAD_START_ROUTINE)loadLib, remote, 0,
-                                       nullptr);
+    HANDLE thread = CreateRemoteThread(h, nullptr, 0, (LPTHREAD_START_ROUTINE)loadLib,
+                                       remote, 0, nullptr);
     if (!thread) {
         Log("CreateRemoteThread failed, err={}", GetLastError());
         VirtualFreeEx(h, remote, 0, MEM_RELEASE);
