@@ -111,6 +111,22 @@ void TickInject(UiState& ui, std::uint64_t now) {
         ui.requestExit = true;
         ui.inject.active = false;
     }
+
+    // Update CS2 stage status text based on injection state
+    if (ui.inject.gameId == "cs2") {
+        if (ui.cs2InjectState == 1) {
+            ui.inject.statusText = "Waiting for CS2 to launch...";
+            ui.inject.stage = 1;
+        } else if (ui.cs2InjectState == 2) {
+            ui.inject.statusText = "Injecting DLL...";
+            ui.inject.stage = 2;
+        } else if (ui.cs2InjectState == 99) {
+            ui.inject.statusText = "Done!";
+            ui.inject.stage = 3;
+            ui.inject.progress = 1.f;
+            ui.inject.logoAlpha = 1.f;
+        }
+    }
 }
 
 struct BranchPopupLayout {
@@ -271,14 +287,13 @@ void DrawFooterLinks(Theme& theme, UiState& ui, const ImVec2& windowPos, ImVec2 
 
 void DrawInjectProgress(Theme& theme, ImDrawList* drawList, ID3D11ShaderResourceView* tex,
                         const ImVec2& windowPos, float modalW, float modalH, float alpha,
-                        float progress) {
-    const char* startText = "The game will start automatically";
+                        float progress, int stage, const std::string& statusText) {
     ImFont* captionFont = theme.fontSmall ? theme.fontSmall : theme.fontDefault;
     if (!tex || !captionFont) return;
 
     const float logoSz = 44.f;
     ImGui::PushFont(captionFont);
-    ImVec2 textSz = ImGui::CalcTextSize(startText);
+    ImVec2 textSz = ImGui::CalcTextSize(statusText.c_str());
     ImGui::PopFont();
 
     const float barH = 3.f;
@@ -316,7 +331,7 @@ void DrawInjectProgress(Theme& theme, ImDrawList* drawList, ID3D11ShaderResource
     drawList->AddText(
         captionFont, captionFont->FontSize, ImVec2(textX, textY),
         ImGui::GetColorU32(ImVec4(theme.caption.x, theme.caption.y, theme.caption.z, alpha)),
-        startText);
+        statusText.c_str());
 }
 
 void DrawBranchPopup(Theme& theme, UiState& ui, data::CheatInfo& info,
@@ -490,38 +505,38 @@ BranchPopupLayout DrawDetailBody(Theme& theme, UiState& ui, data::CheatInfo& inf
                                                             theme.button.z, 0.8f * btnAlpha));
         ImGui::PushStyleColor(ImGuiCol_Text,
                               ImVec4(theme.text.x, theme.text.y, theme.text.z, btnAlpha));
-        // Determine button label based on CS2 injection state
+        // Button label: show stage for CS2
         std::string buttonLabel = "Load";
-        if (ui.modal.gameId == "cs2") {
-            if (ui.cs2InjectState == 0) buttonLabel = "Load";
-            else if (ui.cs2InjectState == 1) buttonLabel = "Inject";
-            else buttonLabel = "Loading...";
+        bool buttonDisabled = false;
+        if (ui.modal.gameId == "cs2" && ui.cs2InjectState != 0) {
+            if (ui.cs2InjectState == 1) buttonLabel = "Waiting...";
+            else if (ui.cs2InjectState == 2) buttonLabel = "Injecting...";
+            else if (ui.cs2InjectState == 99) buttonLabel = "Done";
+            buttonDisabled = true;
         }
         if (ImGui::Button(buttonLabel.c_str(), ImVec2(loadW, btnH))) {
             ui.modal.branchMenu = false;
             ui.modal.branchMenuT = 0.f;
+            // Start unified inject animation for all games
+            ui.inject = {};
+            ui.inject.active = true;
+            ui.inject.startTime = now;
+            ui.inject.modalW = kModalW;
+            ui.inject.modalH = kModalH;
+            ui.inject.contentAlpha = 1.f;
+            ui.inject.gameId = ui.modal.gameId;
+            ui.inject.stage = 0;
             if (ui.modal.gameId == "cs2") {
-                if (ui.cs2InjectState == 0) {
-                    // Launch CS2 through Steam (appid 730)
-                    ShellExecuteW(nullptr, L"open", L"steam://run/730", nullptr, nullptr,
-                                  SW_SHOWNORMAL);
-                    ui.cs2InjectPending = true;
-                    ui.cs2InjectState = 1; // SteamOpen
-                    ui.statusMessage = "Launching CS2 via Steam...";
-                } else {
-                    // Already launched, request injection step
-                    ui.cs2InjectState = 2; // ClientLoaded (attempt injection when ready)
-                    ui.statusMessage = "Injecting DLL...";
-                }
+                // Launch CS2 through Steam (appid 730)
+                ShellExecuteW(nullptr, L"open", L"steam://run/730", nullptr, nullptr,
+                              SW_SHOWNORMAL);
+                ui.cs2InjectPending = true;
+                ui.cs2InjectState = 1; // SteamOpen
+                ui.inject.stage = 1;
+                ui.inject.statusText = "Launching CS2 via Steam...";
             } else {
-                // Normal inject animation for other games
-                ui.inject = {};
-                ui.inject.active = true;
-                ui.inject.startTime = now;
-                ui.inject.modalW = kModalW;
-                ui.inject.modalH = kModalH;
-                ui.inject.contentAlpha = 1.f;
-                ui.statusMessage = "Loading cheat...";
+                ui.inject.stage = 3;
+                ui.inject.statusText = "Loading cheat...";
             }
             if (auto* br = info.ActiveBranch()) {
                 out.persistLastLaunch = true;
@@ -531,6 +546,20 @@ BranchPopupLayout DrawDetailBody(Theme& theme, UiState& ui, data::CheatInfo& inf
                 ui.modal.displayedLastLaunch =
                     FormatRelativeTime(out.lastLaunchWhen, frame.nowUnix);
             }
+        }
+        // Disabled state: draw overlay
+        if (buttonDisabled) {
+            drawList->AddRectFilled(loadPos, ImVec2(loadPos.x + loadW, loadPos.y + btnH),
+                                    ImGui::GetColorU32(ImVec4(theme.button.x, theme.button.y,
+                                                              theme.button.z, btnAlpha * 0.5f)),
+                                    btnRounding);
+            ImVec2 loadTextSz = ImGui::CalcTextSize(buttonLabel.c_str());
+            drawList->AddText(
+                ImVec2(loadPos.x + (loadW - loadTextSz.x) * 0.5f,
+                       loadPos.y + (btnH - loadTextSz.y) * 0.5f),
+                ImGui::GetColorU32(ImVec4(theme.text.x, theme.text.y, theme.text.z, btnAlpha * 0.7f)),
+                buttonLabel.c_str());
+            ImGui::InvisibleButton("##loadDead", ImVec2(loadW, btnH));
         }
         ImGui::PopStyleColor(4);
         ImGui::PopStyleVar();
@@ -688,7 +717,8 @@ void DrawGameModal(Theme& theme, UiState& ui, const UiGpuResources& gpu, data::C
     } else {
         ID3D11ShaderResourceView* tex = gpu.ArtFor(ArtForGameId(ui.modal.gameId));
         DrawInjectProgress(theme, drawList, tex, windowPos, modalW, modalH,
-                           ui.modal.alpha * ui.inject.logoAlpha, ui.inject.progress);
+                           ui.modal.alpha * ui.inject.logoAlpha, ui.inject.progress,
+                           ui.inject.stage, ui.inject.statusText);
     }
 
     if (!ui.inject.showContent && contentAlpha > 0.001f) {

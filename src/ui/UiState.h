@@ -77,6 +77,9 @@ struct InjectAnim {
     float modalH = kModalH;
     float logoAlpha = 0.f;
     float progress = 0.f;
+    std::string gameId;
+    int stage = 0;
+    std::string statusText;
 };
 
 struct UiState {
