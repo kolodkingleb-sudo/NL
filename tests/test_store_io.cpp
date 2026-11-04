@@ -89,17 +89,17 @@ TEST_CASE("SaveSelectedBranch persists and survives a reload") {
     CheatStore store;
     REQUIRE(store.Load());
 
-    REQUIRE(store.SaveSelectedBranch("csgo", "stable"));
+    REQUIRE(store.SaveSelectedBranch("cs2", "nightly"));
 
     CheatStore reloaded;
     REQUIRE(reloaded.Load());
-    const auto* csgo = reloaded.Find("csgo");
-    REQUIRE(csgo != nullptr);
-    CHECK(csgo->selectedBranch == "stable");
-    REQUIRE(csgo->ActiveBranch() != nullptr);
-    CHECK(csgo->ActiveBranch()->id == "stable");
+    const auto* cs2 = reloaded.Find("cs2");
+    REQUIRE(cs2 != nullptr);
+    CHECK(cs2->selectedBranch == "nightly");
+    REQUIRE(cs2->ActiveBranch() != nullptr);
+    CHECK(cs2->ActiveBranch()->id == "nightly");
 
-    CHECK_FALSE(store.SaveSelectedBranch("csgo", "no-such-branch"));
+    CHECK_FALSE(store.SaveSelectedBranch("cs2", "no-such-branch"));
 }
 
 TEST_CASE("A corrupt user file is quarantined and reseeded") {
