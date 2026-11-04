@@ -11,9 +11,47 @@
 #include <cstdint>
 #include <ctime>
 #include <sstream>
+#include <urlmon.h>
 
 namespace nl::ui {
 namespace {
+
+static std::string FetchRemoteVersion(const std::string& gameId) {
+    const char* baseUrl = "https://raw.githubusercontent.com/kolodkingleb-sudo/custommod/main/";
+    std::string url = baseUrl;
+    if (gameId == "cs2_nl")
+        url += "debugNL.txt";
+    else
+        return "";
+
+    // Use URLDownloadToFile to fetch to temp file
+    wchar_t tempPath[MAX_PATH];
+    GetTempPathW(MAX_PATH, tempPath);
+    std::wstring tempFile = std::wstring(tempPath) + L"remote_version.txt";
+
+    if (URLDownloadToFileW(nullptr, std::wstring(url.begin(), url.end()).c_str(),
+                           tempFile.c_str(), 0, nullptr) != S_OK)
+        return "";
+
+    // Read file
+    HANDLE h = CreateFileW(tempFile.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
+                           OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (h == INVALID_HANDLE_VALUE)
+        return "";
+
+    DWORD size = GetFileSize(h, nullptr);
+    std::string content(size, '\0');
+    DWORD read = 0;
+    ReadFile(h, (LPVOID)content.data(), size, &read, nullptr);
+    CloseHandle(h);
+    DeleteFileW(tempFile.c_str());
+
+    // Trim whitespace
+    size_t start = content.find_first_not_of(" \r\n\t");
+    if (start == std::string::npos) return "";
+    size_t end = content.find_last_not_of(" \r\n\t");
+    return content.substr(start, end - start + 1);
+}
 
 void DrawGitBranchIcon(ImDrawList* drawList, ImVec2 center, float size, ImU32 color) {
     const float radius = size * 0.13f;
@@ -83,7 +121,7 @@ void TickInject(UiState& ui, std::uint64_t now) {
     const std::uint64_t injectEnd = shrinkEnd + kFadeInMs + kHoldMs;
 
     // For CS2, don't auto-exit - wait for injection state
-    const bool isCs2 = (ui.inject.gameId == "cs2");
+    const bool isCs2 = (ui.inject.gameId == "cs2_nl");
     const bool cs2Done = isCs2 && (ui.cs2InjectState == 99);
 
     if (elapsed < fadeOutEnd) {
@@ -186,6 +224,7 @@ void DrawMetaColumns(Theme& theme, UiState& ui, const ImVec2& windowPos, float m
         {"Updated:", ui.modal.displayedUpdated.c_str(), baseY + lineSp + fadeY},
         {"Valid Until:", ui.modal.displayedValid.c_str(), baseY + 2 * lineSp + fadeY},
         {"Last Launch:", ui.modal.displayedLastLaunch.c_str(), baseY + 3 * lineSp + fadeY},
+        {"Version:", ui.modal.displayedVersion.c_str(), baseY + 4 * lineSp + fadeY},
     };
     float leftColW = 0.f;
     for (auto& line : left) {
@@ -522,7 +561,7 @@ BranchPopupLayout DrawDetailBody(Theme& theme, UiState& ui, data::CheatInfo& inf
         // Button label: show stage for CS2
         std::string buttonLabel = "Load";
         bool buttonDisabled = false;
-        if (ui.modal.gameId == "cs2" && ui.cs2InjectState != 0) {
+        if (ui.modal.gameId == "cs2_nl" && ui.cs2InjectState != 0) {
             if (ui.cs2InjectState == 1) buttonLabel = "Waiting...";
             else if (ui.cs2InjectState == 2) buttonLabel = "Injecting...";
             else if (ui.cs2InjectState == 99) buttonLabel = "Done";
@@ -540,7 +579,7 @@ BranchPopupLayout DrawDetailBody(Theme& theme, UiState& ui, data::CheatInfo& inf
             ui.inject.contentAlpha = 1.f;
             ui.inject.gameId = ui.modal.gameId;
             ui.inject.stage = 0;
-            if (ui.modal.gameId == "cs2") {
+            if (ui.modal.gameId == "cs2_nl") {
                 // Launch CS2 through Steam (appid 730)
                 ShellExecuteW(nullptr, L"open", L"steam://run/730", nullptr, nullptr,
                               SW_SHOWNORMAL);
@@ -635,6 +674,12 @@ void FillDisplayedBranch(UiState& ui, const data::CheatInfo& info, time_t now) {
     ui.modal.displayedUpdated = FormatDate(b ? b->buildDate : 0, now);
     ui.modal.displayedValid = FormatValidUntil(info.lifetime, info.license);
     ui.modal.displayedLastLaunch = FormatRelativeTime(b ? b->lastLaunch : 0, now);
+    // Fetch remote version for CS2 variants
+    if (ui.modal.gameId == "cs2_nl" || ui.modal.gameId == "cs2_aw") {
+        ui.modal.displayedVersion = FetchRemoteVersion(ui.modal.gameId);
+    } else {
+        ui.modal.displayedVersion.clear();
+    }
     ui.modal.displayedChangelogBlocks.clear();
     if (b) {
         for (const auto& ent : b->changelogs) {

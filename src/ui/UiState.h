@@ -61,6 +61,7 @@ struct ModalState {
     std::string displayedUpdated;
     std::string displayedValid;
     std::string displayedLastLaunch;
+    std::string displayedVersion;
     struct DisplayedChangelogBlock {
         std::string date;
         std::vector<std::string> lines;
