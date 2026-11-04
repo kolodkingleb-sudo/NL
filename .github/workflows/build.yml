@@ -1,67 +1,22 @@
-name: CI Build
-
-# Запускаем на каждой ветке и при открытии pull‑request
+name: Build
 on:
   push:
-    branches: [ main, master, '**' ]
   pull_request:
-    branches: [ main, master ]
-
 jobs:
   build-windows:
     runs-on: windows-latest
-    strategy:
-      matrix:
-        config: [debug, release]
-
     steps:
-      # 1️⃣ Checkout кода
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      # 2️⃣ Установим CMake (доступен в образе, но явно укажем нужную версию)
-      - name: Setup CMake
-        uses: lukka/get-cmake@v3
-        with:
-          cmakeVersion: '3.23.0'
-
-      # 3️⃣ Установим Python (нужен для генерации шрифтов)
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      # 4️⃣ Установим зависимости Python (если появятся)
-      - name: Install Python requirements
-        run: python -m pip install --upgrade pip setuptools wheel
-
-      # 5️⃣ Сгенерируем шрифты (опционально, но в README указано)
-      - name: Generate fonts
-        run: |
-          cd tools
-          python gen_fonts.py
-
-      # 6️⃣ Создадим директорию сборки и запустим CMake‑preset
-      - name: Configure CMake
-        run: |
-          cmake --preset default
-
-      # 7️⃣ Соберём проект (debug/release в зависимости от матрицы)
-      - name: Build
-        run: |
-          cmake --build --preset ${{ matrix.config }}
-
-      # 8️⃣ Запустим тесты (если включены)
+      # CMake предустановлен на раннере — отдельный action не нужен
+      - name: Configure
+        run: cmake --preset default
+      - name: Build (Release)
+        run: cmake --build --preset release
       - name: Run tests
-        if: matrix.config == 'debug' || matrix.config == 'release'
-        run: |
-          ctest --preset ${{ matrix.config }} --output-on-failure
-
-      # 9️⃣ Сохраним артефакт (exe) для последующего скачивания
+        run: ctest --preset default
       - name: Upload executable
         uses: actions/upload-artifact@v4
         with:
-          name: NL-${{ matrix.config }}
-          path: |
-            build/${{ matrix.config }}/NL.exe
-            # если билд генерирует .dll или другие файлы, перечисли их здесь
+          name: NL-exe
+          path: build/Release/NL.exe
