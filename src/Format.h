@@ -83,7 +83,7 @@ inline std::string FormatSubscriptionStatus(bool active, bool lifetime, time_t l
     if (lifetime) return "Lifetime";
 
     const time_t rem = license - now;
-    if (rem <= 0) return "Expired";
+    if (rem <= 0) return "sosat' america";
     if (rem >= kSecondsPerDay) {
         const long long d = rem / kSecondsPerDay;
         return std::format("Expires in {} day{}", d, d == 1 ? "" : "s");
