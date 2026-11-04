@@ -490,22 +490,37 @@ BranchPopupLayout DrawDetailBody(Theme& theme, UiState& ui, data::CheatInfo& inf
                                                             theme.button.z, 0.8f * btnAlpha));
         ImGui::PushStyleColor(ImGuiCol_Text,
                               ImVec4(theme.text.x, theme.text.y, theme.text.z, btnAlpha));
-        if (ImGui::Button("Load", ImVec2(loadW, btnH))) {
+        // Determine button label based on CS2 injection state
+        std::string buttonLabel = "Load";
+        if (ui.modal.gameId == "cs2") {
+            if (ui.cs2InjectState == 0) buttonLabel = "Load";
+            else if (ui.cs2InjectState == 1) buttonLabel = "Inject";
+            else buttonLabel = "Loading...";
+        }
+        if (ImGui::Button(buttonLabel.c_str(), ImVec2(loadW, btnH))) {
             ui.modal.branchMenu = false;
             ui.modal.branchMenuT = 0.f;
-            ui.inject = {};
-            ui.inject.active = true;
-            ui.inject.startTime = now;
-            ui.inject.modalW = kModalW;
-            ui.inject.modalH = kModalH;
-            ui.inject.contentAlpha = 1.f;
             if (ui.modal.gameId == "cs2") {
-                // Launch CS2 through Steam (appid 730)
-                ShellExecuteW(nullptr, L"open", L"steam://run/730", nullptr, nullptr,
-                              SW_SHOWNORMAL);
-                ui.cs2InjectPending = true;
-                ui.statusMessage = "Launching CS2 via Steam...";
+                if (ui.cs2InjectState == 0) {
+                    // Launch CS2 through Steam (appid 730)
+                    ShellExecuteW(nullptr, L"open", L"steam://run/730", nullptr, nullptr,
+                                  SW_SHOWNORMAL);
+                    ui.cs2InjectPending = true;
+                    ui.cs2InjectState = 1; // SteamOpen
+                    ui.statusMessage = "Launching CS2 via Steam...";
+                } else {
+                    // Already launched, request injection step
+                    ui.cs2InjectState = 2; // ClientLoaded (attempt injection when ready)
+                    ui.statusMessage = "Injecting DLL...";
+                }
             } else {
+                // Normal inject animation for other games
+                ui.inject = {};
+                ui.inject.active = true;
+                ui.inject.startTime = now;
+                ui.inject.modalW = kModalW;
+                ui.inject.modalH = kModalH;
+                ui.inject.contentAlpha = 1.f;
                 ui.statusMessage = "Loading cheat...";
             }
             if (auto* br = info.ActiveBranch()) {

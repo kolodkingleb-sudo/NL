@@ -103,6 +103,8 @@ struct UiState {
     bool requestExit = false;
     std::string statusMessage;
     bool cs2InjectPending = false;
+    int cs2InjectState = 0; // 0=Idle, 1=SteamOpen, 2=ClientLoaded, 3=Injecting, 99=Done
+    bool dllDownloaded = false;
     std::string newsText;
     bool newsLoaded = false;
 };
