@@ -437,7 +437,7 @@ bool AppFrame::TickFrame(AppWindow& window, AppDevice& device, bool& running) {
             DWORD pid = 0;
             GetWindowThreadProcessId(cs2Wnd, &pid);
             if (pid) {
-                Log("CS2 window detected (pid %u), checking for client.dll", pid);
+                Log("CS2 window detected (pid {}), checking for client.dll", pid);
                 ui_.statusMessage = "Waiting for client.dll...";
                 if (ProcessHasModule(pid, L"client.dll")) {
                     Log("client.dll found, injecting DLL");
@@ -454,7 +454,6 @@ bool AppFrame::TickFrame(AppWindow& window, AppDevice& device, bool& running) {
             }
         }
     }
-
 
     const PresentResult pr = device.Present(1);
     if (pr == PresentResult::DeviceLost) {
