@@ -30,8 +30,8 @@ def emit_array(name: str, data: bytes) -> str:
     return "\n".join(lines)
 
 
-out_h.write_text(
-    """#pragma once
+with open(out_h, "w", encoding="utf-8", newline="\n") as f:
+    f.write("""#pragma once
 #include <cstddef>
 
 namespace nl::embed {
@@ -49,10 +49,7 @@ Blob Apex();
 Blob CheatsJson();
 
 } // namespace nl::embed
-""",
-    encoding="utf-8",
-    newline="\n",
-)
+""")
 
 parts = ['#include "Embedded.h"\n\nnamespace nl::embed {\nnamespace {\n\n']
 for name, path in files:
@@ -72,5 +69,6 @@ for fn, arr in [
 ]:
     parts.append(f"Blob {fn}() {{\n    return Blob{{{arr}, {arr}_SIZE}};\n}}\n")
 parts.append("\n} // namespace nl::embed\n")
-out_cpp.write_text("".join(parts), encoding="utf-8", newline="\n")
+with open(out_cpp, "w", encoding="utf-8", newline="\n") as f:
+    f.write("".join(parts))
 print(f"wrote {out_cpp} ({out_cpp.stat().st_size} bytes)")
