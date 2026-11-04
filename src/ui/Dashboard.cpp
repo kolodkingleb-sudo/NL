@@ -247,7 +247,9 @@ void DrawNews(ImDrawList* dl, Theme& theme, const std::string& news, float conte
     const char* cstr = news.c_str();
     // rough line count estimate
     int lines = 1;
-    for (const char* p = cstr; *p; ++p) if (*p == '\n') ++lines;
+    for (const char* p = cstr; *p; ++p)
+        if (*p == '\n')
+            ++lines;
     textH = static_cast<float>(lines) * kLineHeight + kPad * 2.f;
 
     ImVec2 textPos(startX + kPad, y + kPad);
@@ -361,6 +363,12 @@ void DrawDashboard(Theme& theme, UiState& ui, const UiGpuResources& gpu, data::C
     const float startX = DrawLogoAndHeader(theme, contentAlpha, winW);
     ImGui::PushFont(theme.fontDefault);
     DrawSideLinks(theme, ui, contentAlpha, dt, ui.modal.open, out);
+    if (!ui.statusMessage.empty()) {
+        ImGui::SetCursorPos(ImVec2(startX, 80.f));
+        ImGui::PushFont(theme.fontSmall ? theme.fontSmall : theme.fontDefault);
+        ImGui::TextUnformatted(ui.statusMessage.c_str());
+        ImGui::PopFont();
+    }
 
     float newsBottomY = 100.f;
     if (ui.newsLoaded && !ui.newsText.empty()) {
@@ -368,7 +376,9 @@ void DrawDashboard(Theme& theme, UiState& ui, const UiGpuResources& gpu, data::C
                  static_cast<float>(winW) - startX - 20.f, 100.f);
         // estimate news height: ~16px per line + padding
         int lines = 1;
-        for (char c : ui.newsText) if (c == '\n') ++lines;
+        for (char c : ui.newsText)
+            if (c == '\n')
+                ++lines;
         newsBottomY = 100.f + static_cast<float>(lines) * 16.f + 30.f;
     }
 
