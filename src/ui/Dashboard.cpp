@@ -247,9 +247,10 @@ void DrawNews(ImDrawList* dl, Theme& theme, const std::string& news, float conte
     const char* cstr = news.c_str();
     // rough line count estimate
     int lines = 1;
-    for (const char* p = cstr; *p; ++p)
+    for (const char* p = cstr; *p; ++p) {
         if (*p == '\n')
             ++lines;
+    }
     textH = static_cast<float>(lines) * kLineHeight + kPad * 2.f;
 
     ImVec2 textPos(startX + kPad, y + kPad);
@@ -376,9 +377,10 @@ void DrawDashboard(Theme& theme, UiState& ui, const UiGpuResources& gpu, data::C
                  static_cast<float>(winW) - startX - 20.f, 100.f);
         // estimate news height: ~16px per line + padding
         int lines = 1;
-        for (char c : ui.newsText)
+        for (char c : ui.newsText) {
             if (c == '\n')
                 ++lines;
+        }
         newsBottomY = 100.f + static_cast<float>(lines) * 16.f + 30.f;
     }
 
