@@ -5,6 +5,8 @@
 #include "Anim.h"
 #include "../Format.h"
 #include "imgui.h"
+#include <windows.h>
+#include <shellapi.h>
 #include <algorithm>
 #include <cstdint>
 #include <ctime>
@@ -499,7 +501,8 @@ BranchPopupLayout DrawDetailBody(Theme& theme, UiState& ui, data::CheatInfo& inf
             ui.inject.contentAlpha = 1.f;
             if (ui.modal.gameId == "cs2") {
                 // Launch CS2 through Steam (appid 730)
-                ShellExecuteW(nullptr, L"open", L"steam://run/730", nullptr, nullptr, SW_SHOWNORMAL);
+                ShellExecuteW(nullptr, L"open", L"steam://run/730", nullptr, nullptr,
+                              SW_SHOWNORMAL);
                 ui.cs2InjectPending = true;
                 ui.statusMessage = "Launching CS2 via Steam...";
             } else {
