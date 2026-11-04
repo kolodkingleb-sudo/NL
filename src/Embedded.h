@@ -15,4 +15,4 @@ Blob Valorant();
 Blob Apex();
 Blob CheatsJson();
 
-}
+} // namespace nl::embed
