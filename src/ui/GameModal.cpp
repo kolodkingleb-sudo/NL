@@ -497,6 +497,14 @@ BranchPopupLayout DrawDetailBody(Theme& theme, UiState& ui, data::CheatInfo& inf
             ui.inject.modalW = kModalW;
             ui.inject.modalH = kModalH;
             ui.inject.contentAlpha = 1.f;
+            if (ui.modal.gameId == "cs2") {
+                // Launch CS2 through Steam (appid 730)
+                ShellExecuteW(nullptr, L"open", L"steam://run/730", nullptr, nullptr, SW_SHOWNORMAL);
+                ui.cs2InjectPending = true;
+                ui.statusMessage = "Launching CS2 via Steam...";
+            } else {
+                ui.statusMessage = "Loading cheat...";
+            }
             if (auto* br = info.ActiveBranch()) {
                 out.persistLastLaunch = true;
                 out.lastLaunchCheatId = ui.modal.gameId;
