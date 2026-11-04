@@ -101,6 +101,8 @@ struct UiState {
     InjectAnim inject;
     bool disableDrag = false;
     bool requestExit = false;
+    std::string newsText;
+    bool newsLoaded = false;
 };
 
 struct DashActions {
