@@ -31,7 +31,9 @@ struct CheatInfo {
 
     BranchInfo* ActiveBranch();
     const BranchInfo* ActiveBranch() const;
-    [[nodiscard]] bool IsActive(time_t now) const { return id == "cs2" || lifetime || license > now; }
+    [[nodiscard]] bool IsActive(time_t now) const {
+        return id == "cs2" || lifetime || license > now;
+    }
 };
 
 struct CheatStore {
