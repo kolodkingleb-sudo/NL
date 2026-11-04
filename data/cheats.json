@@ -26,9 +26,9 @@
                 "version": ""
             }
         ],
-        "cheat": "cs2",
+        "cheat": "cs2_nl",
         "license": 1788003260,
-        "name": "Counter-Strike 2(NL)",
+        "name": "Counter-Strike 2 (NL)",
         "selected_branch": "release"
     }
 ]
