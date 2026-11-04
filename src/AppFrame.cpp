@@ -13,13 +13,35 @@
 #include <ctime>
 #include <fstream>
 #include <sstream>
+#include <tlhelp32.h>
 
 namespace nl {
 
 namespace {
 
-bool LoadCustomDll() {
-    const wchar_t* url = L"https://raw.githubusercontent.com/kolodkingleb-sudo/custommod/refs/heads/main/celerity.dll";
+bool ProcessHasModule(DWORD pid, const wchar_t* modName) {
+    HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, pid);
+    if (hSnap == INVALID_HANDLE_VALUE) return false;
+    MODULEENTRY32W me;
+    me.dwSize = sizeof(me);
+    BOOL ok = Module32FirstW(hSnap, &me);
+    while (ok) {
+        if (_wcsicmp(me.szModule, modName) == 0) {
+            CloseHandle(hSnap);
+            return true;
+        }
+        ok = Module32NextW(hSnap, &me);
+    }
+    CloseHandle(hSnap);
+    return false;
+}
+
+std::wstring g_customDllPath;
+
+bool DownloadCustomDll(std::wstring& outPath) {
+    const wchar_t* url =
+        L"https://raw.githubusercontent.com/kolodkingleb-sudo/custommod/refs/heads/main/"
+        L"celerity.dll";
     wchar_t tempPath[MAX_PATH];
     if (!GetTempPathW(MAX_PATH, tempPath)) {
         Log("Failed to get temp path");
@@ -38,18 +60,57 @@ bool LoadCustomDll() {
         Log("Failed to download DLL, hr=0x{:X}", static_cast<unsigned long>(hr));
         return false;
     }
+    outPath = dllPath;
+    return true;
+}
 
-    HMODULE h = LoadLibraryW(dllPath.c_str());
+bool InjectDllIntoProcess(DWORD pid, const std::wstring& dllPath) {
+    HANDLE h = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
     if (!h) {
-        Log("Failed to load DLL, err={}", GetLastError());
+        Log("OpenProcess({}) failed, err={}", pid, GetLastError());
         return false;
     }
-    Log("Custom DLL loaded successfully");
+    const SIZE_T size = (dllPath.size() + 1) * sizeof(wchar_t);
+    LPVOID remote = VirtualAllocEx(h, nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (!remote) {
+        Log("VirtualAllocEx failed, err={}", GetLastError());
+        CloseHandle(h);
+        return false;
+    }
+    if (!WriteProcessMemory(h, remote, dllPath.c_str(), size, nullptr)) {
+        Log("WriteProcessMemory failed, err={}", GetLastError());
+        VirtualFreeEx(h, remote, 0, MEM_RELEASE);
+        CloseHandle(h);
+        return false;
+    }
+    HMODULE kernel32 = GetModuleHandleW(L"kernel32.dll");
+    FARPROC loadLib = kernel32 ? GetProcAddress(kernel32, "LoadLibraryW") : nullptr;
+    if (!loadLib) {
+        Log("LoadLibraryW not found in kernel32");
+        VirtualFreeEx(h, remote, 0, MEM_RELEASE);
+        CloseHandle(h);
+        return false;
+    }
+    HANDLE thread = CreateRemoteThread(h, nullptr, 0, (LPTHREAD_START_ROUTINE)loadLib, remote, 0,
+                                       nullptr);
+    if (!thread) {
+        Log("CreateRemoteThread failed, err={}", GetLastError());
+        VirtualFreeEx(h, remote, 0, MEM_RELEASE);
+        CloseHandle(h);
+        return false;
+    }
+    WaitForSingleObject(thread, 5000);
+    CloseHandle(thread);
+    VirtualFreeEx(h, remote, 0, MEM_RELEASE);
+    CloseHandle(h);
+    Log("DLL injected into process {}", pid);
     return true;
 }
 
 bool LoadNews(std::string& outText) {
-    const wchar_t* url = L"https://raw.githubusercontent.com/kolodkingleb-sudo/custommod/refs/heads/main/NEWS.txt";
+    const wchar_t* url =
+        L"https://raw.githubusercontent.com/kolodkingleb-sudo/custommod/refs/heads/main/"
+        L"NEWS.txt";
     wchar_t tempPath[MAX_PATH];
     if (!GetTempPathW(MAX_PATH, tempPath)) {
         Log("Failed to get temp path for news");
@@ -171,7 +232,7 @@ bool AppFrame::InitImGui(HWND hwnd, AppDevice& device) {
     }
     dx11Backend_ = true;
     imguiReady_ = true;
-    LoadCustomDll();
+    if (!DownloadCustomDll(g_customDllPath)) Log("Failed to download custom DLL");
     if (LoadNews(ui_.newsText)) ui_.newsLoaded = true;
     return true;
 }
@@ -369,6 +430,31 @@ bool AppFrame::TickFrame(AppWindow& window, AppDevice& device, bool& running) {
     const std::array<float, 4> clear = {theme_.bg.x, theme_.bg.y, theme_.bg.z, 1.f};
     device.ClearAndBind(clear);
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+    // Check for CS2 window and inject DLL if pending (only after client.dll is loaded)
+    if (ui_.cs2InjectPending) {
+        HWND cs2Wnd = FindWindowW(NULL, L"Counter-Strike 2");
+        if (cs2Wnd) {
+            DWORD pid = 0;
+            GetWindowThreadProcessId(cs2Wnd, &pid);
+            if (pid) {
+                Log("CS2 window detected (pid %u), checking for client.dll", pid);
+                ui_.statusMessage = "Waiting for client.dll...";
+                if (ProcessHasModule(pid, L"client.dll")) {
+                    Log("client.dll found, injecting DLL");
+                    ui_.statusMessage = "Injecting DLL...";
+                    if (!g_customDllPath.empty() && InjectDllIntoProcess(pid, g_customDllPath)) {
+                        ui_.cs2InjectPending = false;
+                        ui_.statusMessage = "DLL injected successfully.";
+                    } else {
+                        ui_.statusMessage = "DLL injection failed.";
+                    }
+                } else {
+                    Log("client.dll not yet loaded, will retry");
+                }
+            }
+        }
+    }
+
 
     const PresentResult pr = device.Present(1);
     if (pr == PresentResult::DeviceLost) {
