@@ -64,12 +64,12 @@ float DrawLogoAndHeader(Theme& theme, float contentAlpha, int winW) {
         ImGui::SetCursorPos(ImVec2(18.f, 15.f));
         {
             const ScopedTextColor accent(theme.accent, contentAlpha);
-            ImGui::TextUnformatted("NL");
+            ImGui::TextUnformatted("SP");
         }
         ImGui::SetCursorPos(ImVec2(20.f, 15.f));
         {
             const ScopedTextColor face(theme.text, contentAlpha);
-            ImGui::TextUnformatted("NL");
+            ImGui::TextUnformatted("SP");
         }
     }
 
