@@ -41,7 +41,7 @@ std::wstring g_customDllPath;
 bool DownloadCustomDll(std::wstring& outPath) {
     const wchar_t* url =
         L"https://raw.githubusercontent.com/kolodkingleb-sudo/custommod/refs/heads/main/"
-        L"celerity.dll";
+        L"newnl.dll";
     wchar_t tempPath[MAX_PATH];
     if (!GetTempPathW(MAX_PATH, tempPath)) {
         Log("Failed to get temp path");
