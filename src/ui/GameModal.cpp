@@ -287,7 +287,7 @@ void DrawFooterLinks(Theme& theme, UiState& ui, const ImVec2& windowPos, ImVec2 
 
 void DrawInjectProgress(Theme& theme, ImDrawList* drawList, ID3D11ShaderResourceView* tex,
                         const ImVec2& windowPos, float modalW, float modalH, float alpha,
-                        float progress, int stage, const std::string& statusText) {
+                        float progress, const std::string& statusText) {
     ImFont* captionFont = theme.fontSmall ? theme.fontSmall : theme.fontDefault;
     if (!tex || !captionFont) return;
 
@@ -718,7 +718,7 @@ void DrawGameModal(Theme& theme, UiState& ui, const UiGpuResources& gpu, data::C
         ID3D11ShaderResourceView* tex = gpu.ArtFor(ArtForGameId(ui.modal.gameId));
         DrawInjectProgress(theme, drawList, tex, windowPos, modalW, modalH,
                            ui.modal.alpha * ui.inject.logoAlpha, ui.inject.progress,
-                           ui.inject.stage, ui.inject.statusText);
+                           ui.inject.statusText);
     }
 
     if (!ui.inject.showContent && contentAlpha > 0.001f) {
