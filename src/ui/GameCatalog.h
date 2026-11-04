@@ -19,7 +19,7 @@ struct GameCatalogEntry {
 
 inline constexpr GameCatalogEntry kGameCatalog[] = {
     {"cs2", "Counter-Strike 2", GameArt::Cs2},
-    {"csgo", "Counter-Strike: Global Offensive", GameArt::Csgo},
+    {"csgo", "Counter-Strike 2", GameArt::Csgo},
     {nullptr, "Valorant", GameArt::Valorant},
     {nullptr, "Apex Legends", GameArt::Apex},
 };
