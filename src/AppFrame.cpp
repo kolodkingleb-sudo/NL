@@ -460,7 +460,9 @@ bool AppFrame::TickFrame(AppWindow& window, AppDevice& device, bool& running) {
                         ui_.cs2InjectPending = false;
                         ui_.inject.active = false;
                         ui_.inject.showContent = false;
-                        ui_.requestExit = false;
+                        ui_.requestExit = true;
+                        ui_.modal.closing = true;
+                        ui_.modal.closeTime = GetTickCount64();
                     } else {
                         ui_.statusMessage = "DLL injection failed.";
                         ui_.cs2InjectState = 1; // retry on SteamOpen
