@@ -431,25 +431,40 @@ bool AppFrame::TickFrame(AppWindow& window, AppDevice& device, bool& running) {
     device.ClearAndBind(clear);
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
     // Check for CS2 window and inject DLL if pending (only after client.dll is loaded)
-    if (ui_.cs2InjectPending) {
-        HWND cs2Wnd = FindWindowW(NULL, L"Counter-Strike 2");
-        if (cs2Wnd) {
-            DWORD pid = 0;
-            GetWindowThreadProcessId(cs2Wnd, &pid);
-            if (pid) {
-                Log("CS2 window detected (pid {}), checking for client.dll", pid);
-                ui_.statusMessage = "Waiting for client.dll...";
-                if (ProcessHasModule(pid, L"client.dll")) {
-                    Log("client.dll found, injecting DLL");
-                    ui_.statusMessage = "Injecting DLL...";
+    if (ui_.cs2InjectState != 0) {
+        if (ui_.cs2InjectState == 1) {
+            // SteamOpen: look for CS2 window
+            HWND cs2Wnd = FindWindowW(NULL, L"Counter-Strike 2");
+            if (cs2Wnd) {
+                DWORD pid = 0;
+                GetWindowThreadProcessId(cs2Wnd, &pid);
+                if (pid) {
+                    Log("CS2 window detected (pid {}), checking for client.dll", pid);
+                    ui_.statusMessage = "Waiting for client.dll...";
+                    if (ProcessHasModule(pid, L"client.dll")) {
+                        ui_.cs2InjectState = 2; // ClientLoaded
+                        ui_.statusMessage = "client.dll found, injecting DLL...";
+                    }
+                }
+            }
+        } else if (ui_.cs2InjectState == 2) {
+            // ClientLoaded: inject the DLL
+            HWND cs2Wnd = FindWindowW(NULL, L"Counter-Strike 2");
+            if (cs2Wnd) {
+                DWORD pid = 0;
+                GetWindowThreadProcessId(cs2Wnd, &pid);
+                if (pid && ProcessHasModule(pid, L"client.dll")) {
                     if (!g_customDllPath.empty() && InjectDllIntoProcess(pid, g_customDllPath)) {
-                        ui_.cs2InjectPending = false;
+                        ui_.cs2InjectState = 99; // Done
                         ui_.statusMessage = "DLL injected successfully.";
+                        ui_.cs2InjectPending = false;
+                        ui_.inject.active = false;
+                        ui_.inject.showContent = false;
+                        ui_.requestExit = false;
                     } else {
                         ui_.statusMessage = "DLL injection failed.";
+                        ui_.cs2InjectState = 1; // retry on SteamOpen
                     }
-                } else {
-                    Log("client.dll not yet loaded, will retry");
                 }
             }
         }
