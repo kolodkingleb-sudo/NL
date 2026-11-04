@@ -19,7 +19,7 @@ namespace {
 static std::string FetchRemoteVersion(const std::string& gameId) {
     const char* baseUrl = "https://raw.githubusercontent.com/kolodkingleb-sudo/custommod/main/";
     std::string url = baseUrl;
-    if (gameId == "cs2_nl")
+    if (gameId == "cs2")
         url += "debugNL.txt";
     else
         return "";
@@ -121,7 +121,7 @@ void TickInject(UiState& ui, std::uint64_t now) {
     const std::uint64_t injectEnd = shrinkEnd + kFadeInMs + kHoldMs;
 
     // For CS2, don't auto-exit - wait for injection state
-    const bool isCs2 = (ui.inject.gameId == "cs2_nl");
+    const bool isCs2 = (ui.inject.gameId == "cs2");
     const bool cs2Done = isCs2 && (ui.cs2InjectState == 99);
 
     if (elapsed < fadeOutEnd) {
