@@ -244,7 +244,7 @@ void DrawFooterLinks(Theme& theme, UiState& ui, const ImVec2& windowPos, ImVec2 
     ImGui::SetCursorPos(ImVec2(leftPad, textY - windowPos.y));
     ImGui::InvisibleButton("##community", communitySz);
     bool communityHov = ImGui::IsItemHovered();
-    if (ImGui::IsItemClicked() && !ui.inject.active) out.openUrl = L"https://forum.neverlose.cc/";
+    if (ImGui::IsItemClicked() && !ui.inject.active) out.openUrl = L"https://t.me/LeverWareCs2";
     ImGui::SetCursorPos(ImVec2(leftPad + communitySz.x + 15.f, textY - windowPos.y));
     ImGui::InvisibleButton("##api", apiSz);
     bool apiHov = ImGui::IsItemHovered();

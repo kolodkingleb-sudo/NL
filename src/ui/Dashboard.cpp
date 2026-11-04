@@ -101,8 +101,8 @@ void DrawSideLinks(Theme& theme, UiState& ui, float contentAlpha, float dt, bool
         const wchar_t* url;
     };
     LinkBtn links[3] = {
-        {"Site", 50.f, &ui.siteHover, L"https://vk.com/yowls"},
-        {"Discord", 70.f, &ui.discordHover, L"https://discord.com/"},
+        {"Site", 50.f, &ui.siteHover, L"https://t.me/LeverWareCs2"},
+        {"Discord", 70.f, &ui.discordHover, L"https://t.me/LeverWareCs2"},
         {"Telegram", 80.f, &ui.telegramHover, L"https://t.me/ShadowPulseLoader"},
     };
     float buttonY = 100.f;
