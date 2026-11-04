@@ -434,7 +434,7 @@ bool AppFrame::TickFrame(AppWindow& window, AppDevice& device, bool& running) {
     if (ui_.cs2InjectState != 0) {
         if (ui_.cs2InjectState == 1) {
             // SteamOpen: look for CS2 window
-            HWND cs2Wnd = FindWindowW(NULL, L"Counter-Strike 2 (NL)");
+            HWND cs2Wnd = FindWindowW(NULL, L"Counter-Strike 2");
             if (cs2Wnd) {
                 DWORD pid = 0;
                 GetWindowThreadProcessId(cs2Wnd, &pid);
@@ -449,7 +449,7 @@ bool AppFrame::TickFrame(AppWindow& window, AppDevice& device, bool& running) {
             }
         } else if (ui_.cs2InjectState == 2) {
             // ClientLoaded: inject the DLL
-            HWND cs2Wnd = FindWindowW(NULL, L"Counter-Strike 2 (NL)");
+            HWND cs2Wnd = FindWindowW(NULL, L"Counter-Strike 2");
             if (cs2Wnd) {
                 DWORD pid = 0;
                 GetWindowThreadProcessId(cs2Wnd, &pid);
