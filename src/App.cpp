@@ -67,7 +67,7 @@ bool App::Init(HINSTANCE inst) {
 
     if (!a.frame.Store().Load()) {
         Log("CheatStore::Load failed");
-        MessageBoxW(a.window.Hwnd(), L"Failed to load cheats catalog", L"NL Loader",
+        MessageBoxW(a.window.Hwnd(), L"Failed to load cheats catalog", L"SHADOWPULSE",
                     MB_ICONWARNING);
     }
 

@@ -36,7 +36,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int) {
 
     nl::App app;
     if (!app.Init(hInstance)) {
-        MessageBoxW(nullptr, L"Failed to initialize NL Loader", L"Error", MB_ICONERROR);
+        MessageBoxW(nullptr, L"Failed to initialize SHADOWPULSE", L"Error", MB_ICONERROR);
         app.Shutdown();
         return 1;
     }

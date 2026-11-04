@@ -5,7 +5,7 @@
 namespace nl {
 namespace {
 
-constexpr wchar_t kWndClassName[] = L"NlLoaderWnd";
+constexpr wchar_t kWndClassName[] = L"SpLoaderWnd";
 
 }
 
@@ -36,7 +36,7 @@ bool AppWindow::Create(HINSTANCE inst, int targetW, int targetH, AppWindowHost* 
 
     const MonitorCenter c = CenterOnNearestMonitor(targetW, targetH);
     hwnd_ = CreateWindowExW(WS_EX_APPWINDOW | WS_EX_LAYERED | WS_EX_TOPMOST, kWndClassName,
-                            L"NL Loader", WS_POPUP | WS_VISIBLE, c.x, c.y, targetW, targetH,
+                            L"SHADOWPULSE", WS_POPUP | WS_VISIBLE, c.x, c.y, targetW, targetH,
                             nullptr, nullptr, inst, this);
     if (!hwnd_) {
         Log("CreateWindowExW failed: {}", GetLastError());
