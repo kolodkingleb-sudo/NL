@@ -21,16 +21,20 @@ static_assert(kGameCatalogCount <= kMaxGameSlots,
 
 namespace {
 
-constexpr float kCardRounding = 10.f;
-constexpr float kCardBorder = 1.5f;
-constexpr float kCardPadX = 15.f;
-constexpr float kCardTitleY = 10.f;
-constexpr float kCardStatusY = 35.f;
-constexpr float kCardIconSize = 20.f;
-constexpr float kCardIconPad = 10.f;
-constexpr float kCardIconRound = 5.f;
-constexpr float kInactiveDim = 0.5f;
+constexpr float kCardRounding = 12.f;
+constexpr float kCardBorder = 1.f;
+constexpr float kCardPadX = 20.f;
+constexpr float kCardPadY = 16.f;
+constexpr float kCardHeight = 90.f;
+constexpr float kIconSize = 50.f;
+constexpr float kIconPad = 16.f;
+constexpr float kIconRound = 8.f;
+constexpr float kInactiveDim = 0.45f;
+constexpr float kHoverGlow = 0.15f;
 constexpr ImVec4 kOpaqueWhite(1.f, 1.f, 1.f, 1.f);
+constexpr ImVec4 kStatusActiveBg(0.2f, 0.6f, 0.3f, 1.f);
+constexpr ImVec4 kStatusExpiredBg(0.6f, 0.2f, 0.2f, 1.f);
+constexpr ImVec4 kStatusActiveGlow(0.3f, 0.8f, 0.4f, 0.4f);
 
 bool ActiveFirstThenIndex(const ContainerInfo& a, const ContainerInfo& b) {
     if (a.isActive != b.isActive) return a.isActive > b.isActive;
@@ -58,70 +62,85 @@ void OpenGameModal(UiState& ui, data::CheatStore& store, const char* openId, std
     ui.textScroll.Reset();
 }
 
-float DrawLogoAndHeader(Theme& theme, float contentAlpha, int winW) {
-    {
-        const ScopedFont logoFont(theme.fontLogo);
-        ImGui::SetCursorPos(ImVec2(18.f, 15.f));
-        {
-            const ScopedTextColor accent(theme.accent, contentAlpha);
-            ImGui::TextUnformatted("SP");
-        }
-        ImGui::SetCursorPos(ImVec2(20.f, 15.f));
-        {
-            const ScopedTextColor face(theme.text, contentAlpha);
-            ImGui::TextUnformatted("SP");
-        }
+float DrawHeader(Theme& theme, float contentAlpha, int winW, float dt) {
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    const float logoX = 24.f, logoY = 18.f, logoSize = 32.f;
+    
+    for (int i = 3; i > 0; --i) {
+        float glowAlpha = contentAlpha * 0.15f / static_cast<float>(i);
+        float glowSize = logoSize + static_cast<float>(i) * 4.f;
+        dl->AddCircleFilled(ImVec2(logoX + logoSize/2.f, logoY + logoSize/2.f), glowSize/2.f,
+            ImGui::GetColorU32(ImVec4(theme.accent.x, theme.accent.y, theme.accent.z, glowAlpha)), 32);
     }
-
-    ImVec2 subPos;
-    {
-        const ScopedFont titleFont(theme.fontTitle);
-        const ScopedTextColor color(theme.text, 0.9f * contentAlpha);
-        const float subW = ImGui::CalcTextSize("Subscription").x;
-        subPos = ImVec2((static_cast<float>(winW) - subW - 50.f) / 2.f, 20.f);
-        ImGui::SetCursorPos(subPos);
-        ImGui::TextUnformatted("Subscription");
+    
+    dl->AddRectFilled(ImVec2(logoX, logoY), ImVec2(logoX + logoSize, logoY + logoSize),
+        ImGui::GetColorU32(ImVec4(theme.accent.x, theme.accent.y, theme.accent.z, contentAlpha)), 6.f);
+    
+    ImGui::PushFont(theme.fontLogo);
+    ImVec2 spSz = ImGui::CalcTextSize("SP");
+    ImGui::PopFont();
+    ImGui::SetCursorPos(ImVec2(logoX + (logoSize - spSz.x)/2.f, logoY + (logoSize - spSz.y)/2.f - 2.f));
+    { const ScopedTextColor face(theme.text, contentAlpha); ImGui::TextUnformatted("SP"); }
+    
+    const char* title = "Shadow Pulse";
+    const char* subtitle = "Premium Cheat Platform";
+    ImGui::PushFont(theme.fontTitle);
+    ImVec2 titleSz = ImGui::CalcTextSize(title);
+    ImGui::PopFont();
+    float titleX = (static_cast<float>(winW) - titleSz.x) / 2.f;
+    
+    ImGui::SetCursorPos(ImVec2(titleX, 22.f));
+    { const ScopedTextColor color(theme.text, contentAlpha); ImGui::TextUnformatted(title); }
+    ImGui::SetCursorPos(ImVec2(titleX, 44.f));
+    { const ScopedTextColor color(theme.textMuted, contentAlpha * 0.7f); ImGui::TextUnformatted(subtitle); }
+    
+    float sepY = 70.f;
+    for (float x = logoX + logoSize + 20.f; x < static_cast<float>(winW) - 20.f; x += 2.f) {
+        float alpha = contentAlpha * (0.3f + 0.2f * std::sin(x * 0.02f));
+        dl->AddLine(ImVec2(x, sepY), ImVec2(x + 1.f, sepY),
+            ImGui::GetColorU32(ImVec4(theme.accent.x, theme.accent.y, theme.accent.z, alpha)), 1.f);
     }
-
-    {
-        const ScopedFont bodyFont(theme.fontDefault);
-        const ScopedTextColor color(theme.textMuted, contentAlpha);
-        ImGui::SetCursorPos(ImVec2(subPos.x, 45.f));
-        ImGui::TextUnformatted("Available subscriptions");
-    }
-    return subPos.x;
+    return 85.f;
 }
 
-void DrawSideLinks(Theme& theme, UiState& ui, float contentAlpha, float dt, bool modalOpen,
-                   DashActions& out) {
-    struct LinkBtn {
-        const char* label;
-        float w;
-        float* hover;
-        const wchar_t* url;
+void DrawSideNav(Theme& theme, UiState& ui, float contentAlpha, float dt, bool modalOpen, DashActions& out) {
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    struct NavBtn { const char* icon; const char* label; float* hover; const wchar_t* url; };
+    NavBtn buttons[] = {
+        {"H", "Home", &ui.siteHover, L"https://t.me/LeverWareCs2"},
+        {"D", "Discord", &ui.discordHover, L"https://t.me/LeverWareCs2"},
+        {"T", "Telegram", &ui.telegramHover, L"https://t.me/ShadowPulseLoader"},
     };
-    LinkBtn links[3] = {
-        {"Site", 50.f, &ui.siteHover, L"https://t.me/LeverWareCs2"},
-        {"Discord", 70.f, &ui.discordHover, L"https://t.me/LeverWareCs2"},
-        {"Telegram", 80.f, &ui.telegramHover, L"https://t.me/ShadowPulseLoader"},
-    };
-    float buttonY = 100.f;
-    for (auto& btn : links) {
-        ImGui::SetCursorPos(ImVec2(20.f, buttonY));
-        ImGui::InvisibleButton(btn.label, ImVec2(btn.w, 20.f));
-        const bool hovered = ImGui::IsItemHovered();
+    
+    float btnX = 20.f, btnY = 100.f, btnW = 60.f, btnH = 70.f, gap = 10.f;
+    for (auto& btn : buttons) {
+        float hoverTarget = ImGui::GetIO().MousePos.x >= btnX && ImGui::GetIO().MousePos.x <= btnX + btnW &&
+                           ImGui::GetIO().MousePos.y >= btnY && ImGui::GetIO().MousePos.y <= btnY + btnH ? 1.f : 0.f;
+        HoverLerp(*btn.hover, hoverTarget > 0.5f, dt);
+        float bgAlpha = contentAlpha * (0.08f + 0.05f * btn.hover[0]);
+        float borderAlpha = contentAlpha * (0.2f + 0.3f * btn.hover[0]);
+        
+        dl->AddRectFilled(ImVec2(btnX, btnY), ImVec2(btnX + btnW, btnY + btnH),
+            ImGui::GetColorU32(ImVec4(theme.cardBg.x, theme.cardBg.y, theme.cardBg.z, bgAlpha)), 8.f);
+        dl->AddRect(ImVec2(btnX, btnY), ImVec2(btnX + btnW, btnY + btnH),
+            ImGui::GetColorU32(ImVec4(theme.accent.x, theme.accent.y, theme.accent.z, borderAlpha)), 8.f, 0, 1.2f);
+        
+        ImVec2 iconSz = ImGui::CalcTextSize(btn.icon);
+        ImGui::SetCursorPos(ImVec2(btnX + (btnW - iconSz.x)/2.f, btnY + 18.f));
+        { const ScopedTextColor color(theme.text, contentAlpha * (0.7f + 0.3f * btn.hover[0])); ImGui::TextUnformatted(btn.icon); }
+        
+        ImVec2 labelSz = ImGui::CalcTextSize(btn.label);
+        ImGui::SetCursorPos(ImVec2(btnX + (btnW - labelSz.x)/2.f, btnY + btnH - 22.f));
+        { const ScopedTextColor color(theme.textMuted, contentAlpha * (0.6f + 0.4f * btn.hover[0])); ImGui::TextUnformatted(btn.label); }
+        
+        ImGui::SetCursorPos(ImVec2(btnX, btnY));
+        ImGui::InvisibleButton(btn.label, ImVec2(btnW, btnH));
         if (ImGui::IsItemClicked() && !modalOpen) out.openUrl = btn.url;
-        HoverLerp(*btn.hover, hovered, dt);
-        const ImVec4 col =
-            Lerp4(ImVec4(theme.textDim.x, theme.textDim.y, theme.textDim.z, contentAlpha),
-                  ImVec4(theme.text.x, theme.text.y, theme.text.z, contentAlpha), *btn.hover);
-        ImGui::SetCursorPos(ImVec2(20.f, buttonY));
-        ImGui::PushStyleColor(ImGuiCol_Text, col);
-        ImGui::TextUnformatted(btn.label);
-        ImGui::PopStyleColor();
-        buttonY += 35.f;
+        btnY += btnH + gap;
     }
 }
+
+struct ComingSoonCard { float y = 0.f; const char* name = ""; ID3D11ShaderResourceView* tex = nullptr; };
 
 void TickContainerAnim(UiState& ui, float dt) {
     for (auto& c : ui.containers) {
@@ -135,47 +154,64 @@ void TickContainerAnim(UiState& ui, float dt) {
     }
 }
 
-struct ComingSoonCard {
-    float y = 0.f;
-    const char* name = "";
-    ID3D11ShaderResourceView* tex = nullptr;
-};
-
 void DrawGameCard(ImDrawList* dl, Theme& theme, const ImVec2& pos, float containerWidth,
                   float containerHeight, float vis, const char* gameName, bool isActive,
-                  const char* status, ID3D11ShaderResourceView* texture) {
+                  const char* status, ID3D11ShaderResourceView* texture, float hoverAlpha) {
     const ImVec2 end(pos.x + containerWidth, pos.y + containerHeight);
-    dl->AddRectFilled(pos, end, ColorA(theme.cardBg, vis), kCardRounding);
-    dl->AddRect(pos, end, ColorA(theme.cardOutline, vis), kCardRounding, 0, kCardBorder);
-
-    const float titleTop = pos.y + kCardTitleY;
-    float textX = pos.x + kCardPadX;
-    if (!isActive) {
-        const ImVec2 circle(pos.x + kCardPadX, titleTop + ImGui::GetFontSize() * 0.5f);
-        dl->AddCircleFilled(circle, 3.f, ColorA(theme.accent, vis), 32);
-        dl->AddCircleFilled(circle, 5.f, ColorA(theme.accent, 0.35f * vis), 32);
-        dl->AddCircleFilled(circle, 7.5f, ColorA(theme.accent, 0.15f * vis), 32);
-        textX += 12.f;
-    }
-
-    ImGui::SetCursorPos(ImVec2(textX, titleTop));
-    {
-        const ScopedTextColor color(theme.text, vis);
-        ImGui::TextUnformatted(gameName);
-    }
-
-    ImGui::SetCursorPos(ImVec2(pos.x + kCardPadX, pos.y + kCardStatusY));
-    {
-        const ScopedTextColor color(theme.textMuted, vis);
-        ImGui::TextUnformatted(status);
-    }
-
+    float bgAlpha = vis * (0.12f + 0.08f * hoverAlpha);
+    dl->AddRectFilled(pos, end, ColorA(theme.cardBg, bgAlpha), kCardRounding);
+    
+    float borderAlpha = vis * (0.3f + 0.5f * hoverAlpha);
+    float glowAlpha = vis * hoverAlpha * kHoverGlow;
+    if (hoverAlpha > 0.01f)
+        dl->AddRectFilled(pos, end, ImGui::GetColorU32(ImVec4(theme.accent.x, theme.accent.y, theme.accent.z, glowAlpha)), kCardRounding);
+    dl->AddRect(pos, end, ColorA(theme.accent, borderAlpha), kCardRounding, 0, kCardBorder);
+    
+    float accentBarW = 4.f;
+    ImVec4 accentColor = isActive ? theme.accent : ImVec4(theme.textMuted.x, theme.textMuted.y, theme.textMuted.z, 1.f);
+    dl->AddRectFilled(ImVec2(pos.x + 2.f, pos.y + 2.f), ImVec2(pos.x + accentBarW, end.y - 2.f), ColorA(accentColor, vis), 2.f);
+    
     if (texture) {
-        const ImVec2 ip(pos.x + containerWidth - kCardIconSize - kCardIconPad,
-                        pos.y + kCardIconPad);
-        dl->AddImageRounded(reinterpret_cast<ImTextureID>(texture), ip,
-                            ImVec2(ip.x + kCardIconSize, ip.y + kCardIconSize), ImVec2(0, 0),
-                            ImVec2(1, 1), ColorA(kOpaqueWhite, vis), kCardIconRound);
+        float iconX = end.x - kIconSize - kIconPad;
+        float iconY = pos.y + (containerHeight - kIconSize) / 2.f;
+        if (isActive && hoverAlpha > 0.01f)
+            dl->AddRectFilled(ImVec2(iconX - 3.f, iconY - 3.f), ImVec2(iconX + kIconSize + 3.f, iconY + kIconSize + 3.f),
+                ImGui::GetColorU32(ImVec4(theme.accent.x, theme.accent.y, theme.accent.z, 0.2f * hoverAlpha)), kIconRound + 3.f);
+        dl->AddImageRounded(reinterpret_cast<ImTextureID>(texture), ImVec2(iconX, iconY),
+            ImVec2(iconX + kIconSize, iconY + kIconSize), ImVec2(0, 0), ImVec2(1, 1),
+            ColorA(kOpaqueWhite, vis * (0.9f + 0.1f * hoverAlpha)), kIconRound);
+    }
+    
+    float nameX = pos.x + kCardPadX + accentBarW + 12.f;
+    float nameY = pos.y + kCardPadY + 4.f;
+    ImGui::PushFont(theme.fontDefault);
+    ImVec2 nameSz = ImGui::CalcTextSize(gameName);
+    ImGui::PopFont();
+    ImGui::SetCursorPos(ImVec2(nameX, nameY));
+    { const ScopedTextColor color(theme.text, vis * (0.9f + 0.1f * hoverAlpha)); ImGui::TextUnformatted(gameName); }
+    
+    const char* statusText = isActive ? "Active" : "Expired";
+    ImVec4 statusBg = isActive ? kStatusActiveBg : kStatusExpiredBg;
+    ImVec2 statusBadgeSz = ImGui::CalcTextSize(statusText);
+    float badgeW = statusBadgeSz.x + 16.f, badgeH = 20.f;
+    float badgeX = nameX, badgeY = nameY + nameSz.y + 10.f;
+    
+    dl->AddRectFilled(ImVec2(badgeX, badgeY), ImVec2(badgeX + badgeW, badgeY + badgeH), ImGui::GetColorU32(statusBg), badgeH / 2.f);
+    if (isActive)
+        dl->AddRectFilled(ImVec2(badgeX, badgeY), ImVec2(badgeX + badgeW, badgeY + badgeH),
+            ImGui::GetColorU32(ImVec4(kStatusActiveGlow.x, kStatusActiveGlow.y, kStatusActiveGlow.z, 0.3f)), badgeH / 2.f);
+    
+    ImGui::SetCursorPos(ImVec2(badgeX + (badgeW - statusBadgeSz.x)/2.f, badgeY + (badgeH - statusBadgeSz.y)/2.f - 1.f));
+    { const ScopedTextColor color(ImVec4(1.f, 1.f, 1.f, 1.f), vis); ImGui::TextUnformatted(statusText); }
+    
+    ImGui::SetCursorPos(ImVec2(nameX, badgeY + badgeH + 8.f));
+    { const ScopedTextColor color(theme.textMuted, vis * 0.6f); ImGui::TextUnformatted(status); }
+    
+    if (hoverAlpha > 0.01f) {
+        float arrowX = end.x - kIconSize - kIconPad - 30.f;
+        float arrowY = pos.y + containerHeight / 2.f;
+        dl->AddTriangleFilled(ImVec2(arrowX, arrowY - 6.f), ImVec2(arrowX, arrowY + 6.f), ImVec2(arrowX + 8.f, arrowY),
+            ImGui::GetColorU32(ImVec4(theme.accent.x, theme.accent.y, theme.accent.z, vis * hoverAlpha)));
     }
 }
 
@@ -184,90 +220,37 @@ void DrawComingSoonOverlay(ImDrawList* dl, Theme& theme, const UiGpuResources& g
                            float containerWidth, float containerHeight, float containersStartY,
                            float contentAlpha, int winW, int winH, bool containersAnimating,
                            ScrollState& listScroll) {
-    const float displayW = static_cast<float>(winW);
-    const float displayH = static_cast<float>(winH);
+    const float displayW = static_cast<float>(winW), displayH = static_cast<float>(winH);
     const float x1 = startX + containerWidth;
     const float contentA = std::clamp(contentAlpha, 0.f, 1.f);
     ImFont* font = ImGui::GetFont();
-
-    dl->PushClipRect(ImVec2(startX, containersStartY),
-                     ImVec2(static_cast<float>(winW), static_cast<float>(winH)), true);
-
+    dl->PushClipRect(ImVec2(startX, containersStartY), ImVec2(displayW, displayH), true);
+    
     constexpr float kSoonOpacity = 180.f / 255.f;
     const float soonA = contentA * kSoonOpacity;
     const ImVec4 soonText(theme.text.x * 0.86f, theme.text.y * 0.86f, theme.text.z * 0.86f, 1.f);
-
+    
     for (const ComingSoonCard& card : cards) {
         const ImVec2 pos(startX, card.y);
         const ImVec2 end(x1, card.y + containerHeight);
         dl->AddRectFilled(pos, end, ColorA(theme.cardBg, soonA), kCardRounding);
-        dl->AddRect(pos, end, ColorA(theme.cardOutline, soonA * 0.7f), kCardRounding, 0,
-                    kCardBorder);
-        dl->AddText(font, font->FontSize, ImVec2(startX + kCardPadX, card.y + kCardTitleY),
-                    ColorA(soonText, soonA), card.name);
-        dl->AddText(font, font->FontSize, ImVec2(startX + kCardPadX, card.y + kCardStatusY),
-                    ColorA(theme.textMuted, soonA), "Coming soon");
+        dl->AddRect(pos, end, ColorA(theme.cardOutline, soonA * 0.7f), kCardRounding, 0, kCardBorder);
+        dl->AddText(font, font->FontSize, ImVec2(startX + kCardPadX, card.y + kCardPadY + 4.f),
+            ColorA(soonText, soonA), card.name);
+        dl->AddText(font, font->FontSize, ImVec2(startX + kCardPadX, card.y + kCardPadY + 24.f),
+            ColorA(theme.textMuted, soonA), "Coming soon");
         if (card.tex) {
-            const ImVec2 ip(x1 - kCardIconSize - kCardIconPad, pos.y + kCardIconPad);
+            const ImVec2 ip(x1 - kIconSize - kIconPad, pos.y + (containerHeight - kIconSize)/2.f);
             dl->AddImageRounded(reinterpret_cast<ImTextureID>(card.tex), ip,
-                                ImVec2(ip.x + kCardIconSize, ip.y + kCardIconSize), ImVec2(0, 0),
-                                ImVec2(1, 1), ColorA(kOpaqueWhite, soonA * 0.28f), kCardIconRound);
-        }
-    }
-
-    bool blurred = false;
-    if (gpu.blur && gpu.blur->Ready()) {
-        const bool blurDirty = listScroll.IsMoving() || containersAnimating ||
-                               contentAlpha < 0.999f || !gpu.blur->HasEffect();
-        blurred = QueueBlurCapture(*gpu.blur, dl, blurDirty);
-        if (blurred) {
-            for (const ComingSoonCard& card : cards) {
-                BlitBlurSolid(*gpu.blur, dl, startX, card.y, x1, card.y + containerHeight, 1.f,
-                              displayW, displayH, theme.space.cardRounding);
-            }
-        }
-    }
-    if (!blurred) {
-        for (const ComingSoonCard& card : cards) {
-            dl->AddRectFilled(ImVec2(startX, card.y), ImVec2(x1, card.y + containerHeight),
-                              ColorA(theme.cardBg, 1.f), theme.space.cardRounding);
+                ImVec2(ip.x + kIconSize, ip.y + kIconSize), ImVec2(0, 0), ImVec2(1, 1),
+                ColorA(kOpaqueWhite, soonA * 0.28f), kIconRound);
         }
     }
     dl->PopClipRect();
 }
 
-void DrawNews(ImDrawList* dl, Theme& theme, const std::string& news, float contentAlpha,
-              float startX, float winW, float y) {
-    if (news.empty()) return;
-    constexpr float kLineHeight = 16.f;
-    constexpr float kPad = 12.f;
-    ImGui::PushFont(theme.fontDefault ? theme.fontDefault : ImGui::GetFont());
-    ImGui::PushTextWrapPos(startX + winW - kPad);
-    float textH = 0.f;
-    const char* cstr = news.c_str();
-    // rough line count estimate
-    int lines = 1;
-    for (const char* p = cstr; *p; ++p) {
-        if (*p == '\n') ++lines;
-    }
-    textH = static_cast<float>(lines) * kLineHeight + kPad * 2.f;
-
-    ImVec2 textPos(startX + kPad, y + kPad);
-    ImGui::SetCursorPos(textPos);
-    {
-        const ScopedTextColor color(theme.textSoft, 0.85f * contentAlpha);
-        ImGui::TextUnformatted(cstr);
-    }
-    ImGui::PopTextWrapPos();
-    ImGui::PopFont();
-    (void)dl;
-    (void)textH;
-}
-
-void DrawAvatarFooter(ImDrawList* dl, Theme& theme, const UiGpuResources& gpu, float contentAlpha,
-                      int winH) {
-    (void)dl;
-    (void)gpu;
+void DrawAvatarFooter(ImDrawList* dl, Theme& theme, const UiGpuResources& gpu, float contentAlpha, int winH) {
+    (void)dl; (void)gpu;
     constexpr float kImageSize = 40.f;
     const ImVec2 ip(20.f, static_cast<float>(winH) - kImageSize - 25.f);
     ImGui::SetCursorPos(ImVec2(ip.x, ip.y + (kImageSize - ImGui::GetTextLineHeight()) / 2.f));
@@ -360,32 +343,36 @@ void DrawDashboard(Theme& theme, UiState& ui, const UiGpuResources& gpu, data::C
     }
     ui.dimReady = true;
 
-    const float startX = DrawLogoAndHeader(theme, contentAlpha, winW);
+    const float headerH = DrawHeader(theme, contentAlpha, winW, dt);
     ImGui::PushFont(theme.fontDefault);
-    DrawSideLinks(theme, ui, contentAlpha, dt, ui.modal.open, out);
+    DrawSideNav(theme, ui, contentAlpha, dt, ui.modal.open, out);
+    
     if (!ui.statusMessage.empty()) {
-        ImGui::SetCursorPos(ImVec2(startX, 80.f));
+        ImGui::SetCursorPos(ImVec2(90.f, headerH + 5.f));
         ImGui::PushFont(theme.fontSmall ? theme.fontSmall : theme.fontDefault);
+        const ScopedTextColor color(theme.textMuted, contentAlpha);
         ImGui::TextUnformatted(ui.statusMessage.c_str());
         ImGui::PopFont();
     }
 
-    float newsBottomY = 100.f;
+    float newsBottomY = headerH + 15.f;
     if (ui.newsLoaded && !ui.newsText.empty()) {
-        DrawNews(dl, theme, ui.newsText, contentAlpha, startX,
-                 static_cast<float>(winW) - startX - 20.f, 100.f);
-        // estimate news height: ~16px per line + padding
+        ImGui::SetCursorPos(ImVec2(90.f, newsBottomY));
+        ImGui::PushFont(theme.fontDefault);
+        ImGui::PushTextWrapPos(static_cast<float>(winW) - 20.f);
+        const ScopedTextColor color(theme.textSoft, 0.85f * contentAlpha);
+        ImGui::TextUnformatted(ui.newsText.c_str());
+        ImGui::PopTextWrapPos();
+        ImGui::PopFont();
         int lines = 1;
-        for (char c : ui.newsText) {
-            if (c == '\n') ++lines;
-        }
-        newsBottomY = 100.f + static_cast<float>(lines) * 16.f + 30.f;
+        for (char c : ui.newsText) if (c == '\n') ++lines;
+        newsBottomY += static_cast<float>(lines) * 16.f + 30.f;
     }
 
     constexpr float kScrollSpeed = 60.f;
-    constexpr float kContainerHeight = 80.f;
-    constexpr float kContainerGap = 10.f;
+    constexpr float kContainerGap = 12.f;
     const float kContainersStartY = newsBottomY;
+    const float startX = 90.f;
     const float containerWidth = static_cast<float>(winW) - startX - 20.f;
     const float containersAreaHeight = static_cast<float>(winH) - kContainersStartY;
 
@@ -395,8 +382,7 @@ void DrawDashboard(Theme& theme, UiState& ui, const UiGpuResources& gpu, data::C
             ui.containers.push_back({i, slotActive[i], 0, 0, 0, 1.f});
         std::stable_sort(ui.containers.begin(), ui.containers.end(), ActiveFirstThenIndex);
         for (size_t i = 0; i < ui.containers.size(); ++i) {
-            const float y =
-                kContainersStartY + static_cast<float>(i) * (kContainerHeight + kContainerGap);
+            const float y = kContainersStartY + static_cast<float>(i) * (kCardHeight + kContainerGap);
             ui.containers[i].targetY = ui.containers[i].currentY = ui.containers[i].startY = y;
         }
     } else {
@@ -416,12 +402,11 @@ void DrawDashboard(Theme& theme, UiState& ui, const UiGpuResources& gpu, data::C
     }
 
     for (size_t i = 0; i < ui.containers.size(); ++i)
-        ui.containers[i].targetY =
-            kContainersStartY + static_cast<float>(i) * (kContainerHeight + kContainerGap);
+        ui.containers[i].targetY = kContainersStartY + static_cast<float>(i) * (kCardHeight + kContainerGap);
     TickContainerAnim(ui, dt);
 
     const float cardCount = static_cast<float>(ui.containers.size());
-    const float contentH = cardCount * (kContainerHeight + kContainerGap);
+    const float contentH = cardCount * (kCardHeight + kContainerGap);
     const float maxScroll = std::max(0.f, contentH - containersAreaHeight);
 
     {
@@ -429,20 +414,17 @@ void DrawDashboard(Theme& theme, UiState& ui, const UiGpuResources& gpu, data::C
         const bool over = !ui.modal.open && mouse.x >= startX &&
                           mouse.x <= startX + containerWidth && mouse.y >= kContainersStartY &&
                           mouse.y <= kContainersStartY + containersAreaHeight;
-        TickScroll(ui.listScroll, maxScroll, ImGui::GetIO().MouseWheel, over, dt, now,
-                   kScrollSpeed);
+        TickScroll(ui.listScroll, maxScroll, ImGui::GetIO().MouseWheel, over, dt, now, kScrollSpeed);
     }
 
     ImGui::PushClipRect(ImVec2(startX, kContainersStartY),
                         ImVec2(static_cast<float>(winW), static_cast<float>(winH)), true);
     const float overscrollT = ui.listScroll.overscroll * 0.5f;
-    bool containersAnimating = false;
 
     std::vector<ComingSoonCard> comingSoon;
     comingSoon.reserve(static_cast<size_t>(kGameCatalogCount));
 
     for (auto& container : ui.containers) {
-        if (container.animationProgress < 1.f) containersAnimating = true;
         const float baseY = container.currentY - ui.listScroll.current + overscrollT;
         const ImVec2 pos(startX, baseY);
         const int idx = container.gameIdx;
@@ -456,32 +438,38 @@ void DrawDashboard(Theme& theme, UiState& ui, const UiGpuResources& gpu, data::C
         ID3D11ShaderResourceView* texture = gpu.ArtFor(entry.art);
         const bool isActive = slotActive[idx];
         const float dim = (idx < kMaxGameSlots) ? ui.gameDim[idx] : 1.f;
-        const char* openId = entry.id;
 
-        if (isComingSoon) comingSoon.push_back({baseY, gameName, texture});
+        if (isComingSoon) {
+            comingSoon.push_back({baseY, gameName, texture});
+            continue;
+        }
 
+        // Hover detection
+        const ImVec2 mouse = ImGui::GetIO().MousePos;
+        const bool hovered = !ui.modal.open && mouse.x >= pos.x && mouse.x <= pos.x + containerWidth &&
+                             mouse.y >= pos.y && mouse.y <= pos.y + kCardHeight;
+        float& hoverState = ui.cardHover[idx];
+        hoverState += ((hovered ? 1.f : 0.f) - hoverState) * std::min(1.f, 8.f * dt);
+        
         ImGui::SetCursorPos(pos);
         char gameBtnId[32];
         std::snprintf(gameBtnId, sizeof(gameBtnId), "##game%d", idx);
-        ImGui::InvisibleButton(gameBtnId, ImVec2(containerWidth, kContainerHeight));
+        ImGui::InvisibleButton(gameBtnId, ImVec2(containerWidth, kCardHeight));
         if (ImGui::IsItemClicked() && !ui.modal.open && !ui.modal.closing &&
-            now >= ui.modal.reopenBlockUntil && isActive && openId) {
-            OpenGameModal(ui, store, openId, now, nowUnix);
+            now >= ui.modal.reopenBlockUntil && isActive) {
+            OpenGameModal(ui, store, entry.id, now, nowUnix);
         }
-
-        if (isComingSoon) continue;
 
         const std::string status = nl::FormatSubscriptionStatus(
             isActive, info ? info->lifetime : false, info ? info->license : 0, nowUnix);
-        DrawGameCard(dl, theme, pos, containerWidth, kContainerHeight, contentAlpha * dim, gameName,
-                     isActive, status.c_str(), texture);
+        DrawGameCard(dl, theme, pos, containerWidth, kCardHeight, contentAlpha * dim, gameName,
+                     isActive, status.c_str(), texture, hoverState);
     }
     ImGui::PopClipRect();
 
     if (!comingSoon.empty() && contentAlpha > 0.01f) {
-        DrawComingSoonOverlay(dl, theme, gpu, comingSoon, startX, containerWidth, kContainerHeight,
-                              kContainersStartY, contentAlpha, winW, winH, containersAnimating,
-                              ui.listScroll);
+        DrawComingSoonOverlay(dl, theme, gpu, comingSoon, startX, containerWidth, kCardHeight,
+                              kContainersStartY, contentAlpha, winW, winH, false, ui.listScroll);
     }
 
     DrawScrollBar(dl, ui.listScroll, maxScroll, contentH, 0.f, kContainersStartY,

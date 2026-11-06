@@ -96,6 +96,7 @@ struct UiState {
     ScrollState textScroll;
 
     float gameDim[kMaxGameSlots] = {1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f};
+    float cardHover[kMaxGameSlots] = {0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
     bool dimReady = false;
     unsigned prevActiveMask = 0;
     bool prevActiveValid = false;
