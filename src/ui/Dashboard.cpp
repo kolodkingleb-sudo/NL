@@ -142,6 +142,23 @@ void DrawSideNav(Theme& theme, UiState& ui, float contentAlpha, float dt, bool m
 
 struct ComingSoonCard { float y = 0.f; const char* name = ""; ID3D11ShaderResourceView* tex = nullptr; };
 
+void TickContainerAnim(UiState& ui, float dt);
+
+void DrawHeader(Theme& theme, float contentAlpha, int winW, float dt);
+void DrawSideNav(Theme& theme, UiState& ui, float contentAlpha, float dt, bool modalOpen, DashActions& out);
+void DrawGameCard(ImDrawList* dl, Theme& theme, const ImVec2& pos, float containerWidth,
+                  float containerHeight, float vis, const char* gameName, bool isActive,
+                  const char* status, ID3D11ShaderResourceView* texture, float hoverAlpha);
+void DrawComingSoonOverlay(ImDrawList* dl, Theme& theme, const UiGpuResources& gpu,
+                           std::span<const ComingSoonCard> cards, float startX,
+                           float containerWidth, float containerHeight, float containersStartY,
+                           float contentAlpha, int winW, int winH, bool containersAnimating,
+                           ScrollState& listScroll);
+void DrawAvatarFooter(ImDrawList* dl, Theme& theme, const UiGpuResources& gpu, float contentAlpha, int winH);
+void DrawWindowChrome(ImDrawList* dl, Theme& theme, UiState& ui, float contentAlpha, float dt,
+                      int winW, bool modalOpen, DashActions& out);
+void DrawModalDim(ImDrawList* dl, const ModalState& modal, int winW, int winH, std::uint64_t now);
+
 void TickContainerAnim(UiState& ui, float dt) {
     for (auto& c : ui.containers) {
         if (c.animationProgress < 1.f) {
