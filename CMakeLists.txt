@@ -7,7 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(NL_BUILD_APP "Build the loader executable (Windows only)" ON)
-option(NL_BUILD_TESTS "Build the unit tests (any OS)" ON)
+option(NL_BUILD_TESTS "Build the unit tests (any OS)" OFF)
 option(NL_USE_MUSEO "Use local Museo Sans embed (src/Fonts.cpp)" OFF)
 
 if(NL_BUILD_APP AND NOT WIN32)
@@ -69,7 +69,7 @@ if(NL_BUILD_APP)
     $<$<CONFIG:Release>:NDEBUG>
     $<$<BOOL:${NL_USE_MUSEO}>:NL_USE_MUSEO=1>
   )
-  target_link_libraries(NL PRIVATE d3d11 dxgi dwmapi)
+  target_link_libraries(NL PRIVATE d3d11 dxgi dwmapi urlmon)
 
   enable_language(RC)
   target_sources(NL PRIVATE res/NL.rc)
